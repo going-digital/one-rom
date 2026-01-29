@@ -34,6 +34,33 @@
 //   output remains in a high impedance state".  So ignore /OE if /CE and /WE
 //   go low at the same time, or /CE after /WE.  This probably complicated the
 //   algorithm.
+//
+// - Idea from Peter Stansfeld to lose an instruction to lose and instruction
+//   from the data pin direction handler.
+//
+//      5: mov pindirs, ~null
+//      .wrap_target
+//      1: mov x, pins
+//      2: jmp x--, 0
+//      3: jmp pin, 5
+//      ;  4: jmp 0    ; this instruction can be lost
+//      .start
+//      0: mov pindirs, null
+//      .wrap
+//
+//   With the above idea to use 001 in Y it would become
+//
+//      .start
+//      0: mov y, 0b001  ; Maybe 0b100, not sure
+//      1: mov pindirs, null
+//      .wrap_target
+//      2: mov x, pins
+//      3: jmp x!=y 1
+//      4: mov pindirs, ~null
+//      .wrap
+//
+//   But it probably needs to become more complicated to handle /CS going low
+//   before /W - see above.
 
 // # Introduction
 //
