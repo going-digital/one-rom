@@ -56,7 +56,7 @@ One ROM's minimum high input voltage is less than the 6502/6567/6560/6561's mini
 
 ## Absolute Maximum VIN
 
-According to the MCU datasheets, the absolulte maximum rated voltage on any 5V tolerant pin is VDD + 4.0V for the STM32F4 and VDD + 3.63V on the RP2350.  There is also a 5.5V absolute maximum - so when VDD is at its usual 3.3V, the absolute maximum on any pin is 5.5V.
+According to the MCU datasheets, the absolute maximum rated voltage on any 5V tolerant pin is VDD + 4.0V for the STM32F4 and VDD + 3.63V on the RP2350.  There is also a 5.5V absolute maximum - so when VDD is at its usual 3.3V, the absolute maximum on any pin is 5.5V.
 
 When VDD is 0V (before the voltage regulator is powering the chip), this means the absolute maximum voltage on any pin is 4.0V/3.63V (Ice/Fire).  When One ROM is installed in a retro system and powered on there is likely to be a 20us delay (see AP2112K-3.3TRG1 datasheet) between VCC being applied to One ROM and the voltage regulator outputting 3.3V to the MCU.
 
