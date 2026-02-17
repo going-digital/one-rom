@@ -118,7 +118,7 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                         }
                     }
                 }
-            } else {
+            } else if (rom_pins == 28) {
 #if defined(RP235X)
                 // 28 pin ROMs.  0.6.4 only 231024 has CS lines in address space.
                 if (rom_type != CHIP_TYPE_231024) {
@@ -194,6 +194,29 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                     checked++;
                 }
 #endif
+            } else if (rom_pins == 40) {
+                // CS pins are not part of the address space for 40 pin ROMs, so just test the entire
+                // address space linearly.
+                size_t orig_rom_size = get_expected_rom_size(rom_type);
+                for (uint32_t original_addr = 0; original_addr < orig_rom_size; original_addr++) {
+                    // Get expected value
+                    uint8_t expected_byte = loaded_roms[loaded_rom_idx].data[original_addr];
+                    uint32_t mangled_addr = create_mangled_address(rom_pins, original_addr, 0, 255, 255, 0, 0);
+                    uint8_t compiled_byte = lookup_rom_byte(set_idx, mangled_addr);
+                    uint8_t demangled_byte = demangle_byte(compiled_byte);
+
+                    if (demangled_byte != expected_byte) {
+                        if (errors < 5) {
+                            printf("    - MISMATCH at addr 0x%08X: mangled 0x%08X expected 0x%02X, got 0x%02X\n",
+                                    original_addr, mangled_addr, expected_byte, demangled_byte);
+                        }
+                        errors++;
+                    }
+                    checked++;
+                }
+            } else {
+                printf("  Error: Unsupported pin count %zu for single ROM set\n", rom_pins);
+                return -1;
             }
 
             overall_rom_idx++;

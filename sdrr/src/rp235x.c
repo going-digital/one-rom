@@ -289,14 +289,19 @@ void setup_gpio(void) {
     // Go through the data pins, disabling the output disable and setting the
     // drive strength.  We don't actually set as an output here.
     // Set the drive strength to 8mA and slew rate to fast.
-    for (int ii = 0; ii < 8; ii++) {
-        uint8_t pin = sdrr_info.pins->data[ii];
-        if (pin < MAX_USED_GPIOS) {
-            GPIO_PAD(sdrr_info.pins->data[ii]) &= ~PAD_OUTPUT_DISABLE;
-            GPIO_PAD(sdrr_info.pins->data[ii]) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
-            GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
-        } else {
-            ERR("Invalid data pin %d", pin);
+    const uint8_t *data_pins[] = {sdrr_info.pins->data, sdrr_info.pins->data2};
+    for (int jj = 0; jj < 2; jj++) {
+        for (int ii = 0; ii < 8; ii++) {
+            uint8_t pin = data_pins[jj][ii];
+            if (pin < MAX_USED_GPIOS) {
+                GPIO_PAD(pin) &= ~PAD_OUTPUT_DISABLE;
+                GPIO_PAD(pin) |= PAD_DRIVE(PAD_DRIVE_8MA) | PAD_SLEW_FAST;
+                GPIO_CTRL(pin) = GPIO_CTRL_FUNC_SIO;
+            } else {
+                if (jj == 0) {
+                    ERR("Invalid data pin %d", pin);
+                }
+            }
         }
     }
 
@@ -314,6 +319,8 @@ void setup_gpio(void) {
     } else {
         DEBUG("No status LED pin defined");
     }
+
+    // No need to set /BYTE to input - done above
 }
 
 // Reconfigure flash (QMI) speed if required
@@ -732,7 +739,7 @@ void enter_bootloader(void) {
 
 void check_config(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 ) {
     uint8_t failed = 0;
@@ -764,6 +771,20 @@ void check_config(
         ERR("Sel pins should be using bank 0");
         failed = 1;
     }
+
+    // Count the number of data pins
+    uint8_t data_pins = 0;
+    for (int ii = 0; ii < 8; ii++) {
+        if (info->pins->data[ii] < MAX_USED_GPIOS) {
+            data_pins += 1;
+        }
+    }
+    for (int ii = 0; ii < 8; ii++) {
+        if (info->pins->data2[ii] < MAX_USED_GPIOS) {
+            data_pins += 1;
+        }
+    }
+    runtime->num_data_pins = data_pins;
 
     if (chip_pins == 24) {
         if (runtime->fire_serve_mode == FIRE_SERVE_CPU) {
@@ -830,12 +851,6 @@ void check_config(
             }
         }
     } else if (chip_pins == 28) {
-        // Checks only valid for 28-pin ROMs
-        if (runtime->fire_serve_mode != FIRE_SERVE_PIO) {
-            ERR("28-pin ROM requires PIO serving mode");
-            failed = 1;
-        }
-
         // Check CS and CE/OE lines are valid
         uint8_t ce_pin = info->pins->ce;
         uint8_t oe_pin = info->pins->oe;
@@ -847,7 +862,7 @@ void check_config(
             (cs3_pin >= MAX_USED_GPIOS) ||
             (ce_pin >= MAX_USED_GPIOS) ||
             (oe_pin >= MAX_USED_GPIOS)) {
-            ERR("28-pin ROM requires 3xCS and CE/OE pins");
+            ERR("28-pin requires 3xCS and CE/OE");
             failed = 1;
         }
 
@@ -879,11 +894,11 @@ void check_config(
             }
         }
         if (num_addr_pins != 18) {
-            ERR("28-pin ROM requires 18 address pins");
+            ERR("28-pin requires 18 addr pins");
             failed = 1;
         }
         if (!ce_in_addr || !oe_in_addr) {
-            ERR("28-pin ROM requires CE/OE within address pins");
+            ERR("28-pin requires CE/OE within addr pins");
             failed = 1;
         }
 
@@ -896,8 +911,40 @@ void check_config(
 
         // Other checking we could do includes that all CS/CE/OE and address
         // pins are contiguous
+    } else if (chip_pins == 40) {
+        // Check that we have 19 address pins (16 in addr, 3 in addr2)
+        uint8_t num_addr_pins = 0;
+        for (int ii = 0; ii < 16; ii++) {
+            if (info->pins->addr[ii] < MAX_USED_GPIOS) {
+                num_addr_pins += 1;
+            }
+        }
+        for (int ii = 0; ii < 3; ii++) {
+            if (info->pins->addr2[ii] < MAX_USED_GPIOS) {
+                num_addr_pins += 1;
+            }
+        }
+        if (num_addr_pins != 19) {
+            ERR("40-pin requires 19 addr pins");
+            failed = 1;
+        }
+
+        // Check we have 16 data pins
+        if (runtime->num_data_pins < 16) {
+            ERR("40 pin requires 16 data pins");
+            failed = 1;
+        }
+
+        // Check we have a byte pin
+        uint8_t byte_pin = info->pins->byte;
+        if (byte_pin >= MAX_USED_GPIOS) {
+            ERR("40-pin requires BYTE pin");
+            failed = 1;
+        }
+
+        // Other checking we do do includes CE/OE not being in address pins
     } else {
-        ERR("Only 24/28 pins currently supported");
+        ERR("Only 24/28/40 pins =supported");
         failed = 1;
     }
 

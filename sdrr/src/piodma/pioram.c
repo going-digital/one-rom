@@ -859,9 +859,11 @@ extern uint32_t _ram_rom_image_start[];
 // Top-level RAM serving function
 int pioram(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     uint32_t ram_table_addr
 ) {
     (void)info;
+    (void)runtime;
 
     DEBUG("%s", log_divider);
 

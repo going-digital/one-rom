@@ -59,7 +59,7 @@ extern void blink_pattern(uint32_t on_time, uint32_t off_time, uint8_t repeats);
 extern void enter_bootloader(void);
 extern void check_config(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 );
 extern void platform_logging(void);
@@ -70,6 +70,7 @@ void dfu(void);
 // pio.c
 extern int pio(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
@@ -77,11 +78,13 @@ extern int pio(
 #if defined(RP235X)
 extern int piorom(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 );
 extern int pioram(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     uint32_t rom_table_addr
 );
 #endif // RP235X
@@ -90,16 +93,25 @@ extern int pioram(
 #if !defined(TIMER_TEST) && !defined(TOGGLE_PA4)
 extern void main_loop(
     const sdrr_info_t *info,
-    const sdrr_runtime_info_t *runtime,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set
 );
 extern uint8_t get_rom_set_index(uint32_t sel_pins, uint32_t sel_mask);
-extern void* preload_rom_image(const sdrr_rom_set_t *set);
+extern void* preload_rom_image(const sdrr_runtime_info_t *runtime_info, const sdrr_rom_set_t *set);
 #endif // !TIMER_TEST && !TOGGLE_PA4
 
 // test function prototypes
 #if defined(TIMER_TEST) || defined(TOGGLE_PA4)
 extern void main_loop(void);
 #endif // TIMER_TEST || TOGGLE_PA4
+
+#if defined(RP235X)
+extern void dma_copy(
+    uint32_t src_addr,
+    uint32_t dst_addr,
+    size_t size_words
+);
+extern uint32_t dma_copy_status(void);
+#endif // RP235X
 
 #endif // FUNCTIONS_H

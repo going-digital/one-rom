@@ -10,23 +10,25 @@
 
 #if defined(TEST_BUILD)
 #define TEST_PIO_C
+#else
+#define APIO_LOG_IMPL  1
 #endif // TEST_BUILD
 
-#define APIO_LOG_IMPL  1
 #include "piodma/piodma.h"
 
 int pio(
     const sdrr_info_t *info,
+    sdrr_runtime_info_t *runtime,
     const sdrr_rom_set_t *set,
     uint32_t rom_table_addr
 ) {
     int rc;
     if (set->roms[0]->rom_type == CHIP_TYPE_6116) {
         DEBUG("PIO RAM Mode");
-        rc = pioram(info, rom_table_addr);
+        rc = pioram(info, runtime, rom_table_addr);
     } else {
         DEBUG("PIO ROM Mode");
-        rc = piorom(info, set, rom_table_addr);
+        rc = piorom(info, runtime, set, rom_table_addr);
     }
 
     // Only returns in emulation case.

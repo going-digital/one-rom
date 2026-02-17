@@ -36,9 +36,12 @@ typedef struct dma_ch_reg {
 #define DMA_CTRL_TRIG_DATA_SIZE_8BIT    (0 << 2)
 #define DMA_CTRL_TRIG_DATA_SIZE_16BIT   (1 << 2)
 #define DMA_CTRL_TRIG_DATA_SIZE_32BIT   (2 << 2)
+#define DMA_CTRL_INCR_READ              (1 << 4)
+#define DMA_CTRL_INCR_WRITE             (1 << 6)
 #define DMA_CTRL_TRIG_CHAIN_TO(X)       (((X) & 0xF) << 13)
 #define DMA_CTRL_TRIG_TREQ_SEL(X)       (((X) & 0x3F) << 17)
-#define DMA_CTRL_TRIG_TREQ_PERM         0x3f
+#define DMA_CTRL_TRIG_TREQ_PERM_BITS    0x3f
+#define DMA_CTRL_TRIG_TREQ_PERM         DMA_CTRL_TRIG_TREQ_SEL(DMA_CTRL_TRIG_TREQ_PERM_BITS)
 #define DMA_CTRL_TRIG_IRQ_QUIET         (1 << 23)
 
 // Macro to access DMA channel X's READ_ADDR register

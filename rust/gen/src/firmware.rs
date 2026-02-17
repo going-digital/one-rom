@@ -113,6 +113,12 @@ impl FirmwareConfig {
                     FireServeMode::Cpu
                 });
             }
+            if (override_present[1] & (1 << 0)) != 0 {
+                fire_config.rom_dma_preload = (override_value[0] & (1 << 5)) != 0;
+            }
+            if (override_present[1] & (1 << 1)) != 0 {
+                fire_config.force_16_bit = (override_value[0] & (1 << 6)) != 0;
+            }
             Some(fire_config)
         } else {
             None
@@ -170,8 +176,20 @@ pub struct FireConfig {
     #[serde(default)]
     pub vreg: Option<FireVreg>,
 
-    /// Option PIO/CPU override
+    /// Optional PIO/CPU override
     pub serve_mode: Option<FireServeMode>,
+
+    /// Optional DMA ROM preload enable/disable
+    #[serde(default)]
+    pub rom_dma_preload: bool,
+
+    /// Optional Force 16 bit mode.  Only supported on One ROM 40, and if set
+    /// this _disables_ of the /BYTE pin to indicate 8-bit mode, forcing the
+    /// ROM to always operate in 16-bit mode.  This is a higher performance
+    /// mode, as the algorithm can read the address lines 33% more frequently,
+    /// but obviously disables the used of 8-bit mode.
+    #[serde(default)]
+    pub force_16_bit: bool,
 }
 
 /// Fire serve mode
