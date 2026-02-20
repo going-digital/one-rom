@@ -1,6 +1,8 @@
 # Fire 24 Rev E
 
-**Verified**
+**Verified** - The standard version of this design has been verified.
+
+`*-alt-ap2112k` provides an alternative AP2112K part, if the standard AP2112K-3.3 is not available.  This alternative part has not been verified.
 
 23xx Fire (RP2350 24 pin) combined USB+SWD One ROM PCB.  Includes 4 image select jumpers.  Supports PIO and CPU serving algorithms.  USB-C.
 

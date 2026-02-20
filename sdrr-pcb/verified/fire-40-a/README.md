@@ -1,8 +1,10 @@
 # One ROM Fire 40 pin 
 
-**Verified** - This design has been verified serving a 27C400 16-bit 40-pin ROM on an Amiga A500.
+**Verified** - The "rp2354-and-flash" design has been verified serving a 27C400 16-bit 40-pin ROM on an Amiga A500.
 
-The external flash, has not been verified.  This design has only been tested using the RP2354B with built in flash.  While external flash is also present on the tested boards, it has not been verified, or that the design works with an RP2350.
+The "rp2354-no-ext-flash" has not yet been verified.
+
+The functionality of the external flash has not been verified.  This design has only been tested using the RP2354B with built in flash.  While external flash is also present on the tested boards, it has not been verified, or that the design works with an RP2350.
 
 Odds are good that all will work, but buyer beware.
 
