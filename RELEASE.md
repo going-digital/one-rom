@@ -30,6 +30,7 @@ git push
 Locally run the following tests:
 
 ```bash
+ci/test-pios.sh
 ci/build.sh test
 ci/build.sh ci
 ci/build.sh release v<x.y.z>
