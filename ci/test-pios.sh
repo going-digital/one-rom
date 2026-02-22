@@ -1,0 +1,166 @@
+#####################################################################
+# PIO tests
+#
+# Uses epio PIO emulator to verify correct PIO behaviour
+#####################################################################
+set -e
+
+run_test() {
+    local hw_rev=$1
+    local image=$2
+    local base_config=$3
+    local num_cs=$4
+    local extra_flags=${5:-}
+
+    for cs1 in 0 1; do
+        if [ $num_cs -lt 2 ]; then
+            local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" ROM_CONFIGS=\"file=$image,$base_config,cs1=$cs1\" make test-pio"
+            echo "$cmd"
+            env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+                ROM_CONFIGS="file=$image,$base_config,cs1=$cs1" make test-pio > /dev/null || \
+                { echo "FAILED: $cmd"; exit 1; }
+            continue
+        fi
+        for cs2 in 0 1; do
+            if [ $num_cs -lt 3 ]; then
+                local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" ROM_CONFIGS=\"file=$image,$base_config,cs1=$cs1,cs2=$cs2\" make test-pio"
+                echo "$cmd"
+                env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+                    ROM_CONFIGS="file=$image,$base_config,cs1=$cs1,cs2=$cs2" make test-pio > /dev/null || \
+                    { echo "FAILED: $cmd"; exit 1; }
+                continue
+            fi
+            for cs3 in 0 1; do
+                local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" ROM_CONFIGS=\"file=$image,$base_config,cs1=$cs1,cs2=$cs2,cs3=$cs3\" make test-pio"
+                echo "$cmd"
+                env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+                    ROM_CONFIGS="file=$image,$base_config,cs1=$cs1,cs2=$cs2,cs3=$cs3" make test-pio > /dev/null || \
+                    { echo "FAILED: $cmd"; exit 1; }
+            done
+        done
+    done
+}
+
+run_no_cs() {
+    local hw_rev=$1
+    local image=$2
+    local base_config=$3
+    local extra_flags=${4:-}
+
+    local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" ROM_CONFIGS=\"file=$image,$base_config\" make test-pio"
+    echo "$cmd"
+    env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+        ROM_CONFIGS="file=$image,$base_config" make test-pio > /dev/null || \
+        { echo "FAILED: $cmd"; exit 1; }
+}
+
+test_24_all_rom_types() {
+    local hw_rev=${1:-fire-24-e}
+    local extra_flags=${2:-}
+
+    run_test   $hw_rev images/test/rand_8192.rom trunc,type=2316 3 "$extra_flags"
+    run_test   $hw_rev images/test/rand_8192.rom trunc,type=2332 2 "$extra_flags"
+    run_test   $hw_rev images/test/rand_8192.rom type=2364       1 "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2716   "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_8192.rom trunc,type=2732   "$extra_flags"
+}
+
+test_28_all_rom_types() {
+    local hw_rev=${1:-fire-28-a}
+    local extra_flags=${2:-}
+
+    run_test   $hw_rev images/test/rand_65536.rom trunc,type=23128 3 "$extra_flags"
+    run_test   $hw_rev images/test/rand_65536.rom trunc,type=23256 2 "$extra_flags"
+    run_test   $hw_rev images/test/rand_65536.rom type=23512       2 "$extra_flags"
+    run_test   $hw_rev images/test/rand_128KB.rom type=231024      1 "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_65536.rom trunc,type=2764    "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_65536.rom trunc,type=27128   "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_65536.rom trunc,type=27256   "$extra_flags"
+    run_no_cs  $hw_rev images/test/rand_65536.rom type=27512         "$extra_flags"
+}
+
+test_40pin() {
+    local hw_rev=${1:-fire-40-a}
+    local extra_flags=${2:-}
+
+    run_no_cs  $hw_rev images/test/rand_512KB.rom type=27C400 "$extra_flags"
+}
+
+run_config() {
+    local hw_rev=$1
+    local config=$2
+    local extra_flags=${3:-}
+
+    local cmd="HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS=\"$extra_flags\" CONFIG=\"$config\" make test-pio"
+    echo "$cmd"
+    env HW_REV=$hw_rev MCU=rp2350 EXTRA_C_FLAGS="$extra_flags" \
+        CONFIG="$config" make test-pio > /dev/null || \
+        { echo "FAILED: $cmd"; exit 1; }
+}
+
+test_config() {
+    local hw_rev=${1:-fire-24-a}
+    local config=$2
+    local extra_flags=${3:-}
+
+    run_config $hw_rev "$config" "$extra_flags"
+}
+
+test_24_config() {
+    local config=$1
+
+    test_config fire-24-a "$config" -DRP_PIO
+    test_config fire-24-b "$config" -DRP_PIO
+    test_config fire-24-c "$config"
+    test_config fire-24-d "$config"
+    test_config fire-24-e "$config"
+}
+
+test_24_config_c_onwards() {
+    local config=$1
+
+    test_config fire-24-c "$config"
+    test_config fire-24-d "$config"
+    test_config fire-24-e "$config"
+}
+
+test_28_config() {
+    local config=$1
+
+    test_config fire-28-a "$config"
+}
+
+# Test every ROM type on every Fire 24 hardware revision.  This tests a single
+# ROM image/set
+test_24_all_rom_types fire-24-a -DRP_PIO
+test_24_all_rom_types fire-24-b -DRP_PIO
+test_24_all_rom_types fire-24-c
+test_24_all_rom_types fire-24-d
+test_24_all_rom_types fire-24-e
+
+# Test every ROM type on the first Fire 28 hardware revision.  This tests a
+# single ROM image/set
+test_28_all_rom_types fire-28-a
+
+# The PIO tester doesn't support 40 pin ROMs yet
+#test_40pin fire-40-a
+
+# Test specific ROM configurations on all Fire 24 hardware revisions.
+test_24_config old-config/c64-no-destestmax.mk
+test_24_config old-config/pet-4-40-50.mk
+test_24_config old-config/vic20-pal.mk
+
+# Test multi-ROM sets on revisions C+.  A/B do not support multi-ROM sets with
+# PIO support due to a lack of contiguity between CS and X pins.
+test_24_config_c_onwards old-config/test/set-2-images.mk
+test_24_config_c_onwards old-config/test/set-3-images.mk
+
+# Test banked switched ROM configurations on all Fire 24 hardware revisions.
+# All hardware revisions support bank switched ROMs with PIO support.
+test_24_config old-config/bank-1541.mk
+test_24_config old-config/bank-c64-char.mk
+test_24_config old-config/bank-vic20-char-fun.mk
+
+# Test specific ROM configurations on all Fire 28 hardware revisions.
+test_28_config old-config/28-c64c.mk
+test_28_config old-config/28-1541ii.mk

@@ -2,6 +2,7 @@
 # For native test builds only
 MAKEFLAGS += --no-builtin-rules --no-builtin-variables
 
+CC := gcc
 COLOUR_YELLOW := $(shell echo -e '\033[33m')
 COLOUR_RESET := $(shell echo -e '\033[0m')
 
@@ -23,7 +24,8 @@ endif
 SRCS := src/constants.c src/main.c src/rom_impl.c src/test.c src/utils.c \
         src/vector.c src/stm32f4.c src/rp235x.c src/piodma/pio.c \
         src/piodma/piorom.c src/piodma/pioram.c src/piodma/dma.c \
-        test/stub_rp235x.c test/test_main.c test/test_log.c
+        test/stub_rp235x.c test/test_main.c test/test_log.c \
+        test/test_image.c test/test_gpio.c
 OBJS := $(patsubst src/%.c,$(BUILD_DIR)/%.o,$(filter src/%,$(SRCS)))
 OBJS += $(patsubst test/%.c,$(BUILD_DIR)/%.o,$(filter test/%,$(SRCS)))
 
@@ -33,10 +35,6 @@ ROMS_OBJ := $(BUILD_DIR)/roms.o
 SDRR_CONFIG_SRC := $(OUTPUT_DIR)/sdrr_config.c
 SDRR_CONFIG_OBJ := $(BUILD_DIR)/sdrr_config.o
 
-VERSION_MAJOR := 0
-VERSION_MINOR := 6
-VERSION_PATCH := 4
-BUILD_NUMBER := 0
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Compile flags:
