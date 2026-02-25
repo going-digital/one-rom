@@ -194,6 +194,24 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                     checked++;
                 }
 #endif
+            } else if (rom_pins == 32) {
+                size_t orig_rom_size = get_expected_rom_size(rom_type);
+                for (uint32_t original_addr = 0; original_addr < orig_rom_size; original_addr++) {
+                    // Get expected value
+                    uint8_t expected_byte = loaded_roms[loaded_rom_idx].data[original_addr];
+                    uint32_t mangled_addr = create_mangled_address(rom_pins, original_addr, 0, 255, 255, 0, 0);
+                    uint8_t compiled_byte = lookup_rom_byte(set_idx, mangled_addr);
+                    uint8_t demangled_byte = demangle_byte(compiled_byte);
+
+                    if (demangled_byte != expected_byte) {
+                        if (errors < 5) {
+                            printf("    - MISMATCH at addr 0x%08X: mangled 0x%08X expected 0x%02X, got 0x%02X\n",
+                                    original_addr, mangled_addr, expected_byte, demangled_byte);
+                        }
+                        errors++;
+                    }
+                    checked++;
+                }
             } else if (rom_pins == 40) {
                 // CS pins are not part of the address space for 40 pin ROMs, so just test the entire
                 // address space linearly.
@@ -261,6 +279,14 @@ int validate_all_rom_sets(json_config_t *json_config, loaded_rom_t *loaded_roms,
                             break;
                         }
                     }
+#if defined(RP_PIO)
+                    // Invert sense of CS1, X1 and X2 when using PIO serving.
+                    // We do this after the above logic, which is based on
+                    // real CS1/X1/X2 values.
+                    cs1 = cs1 ^ 1;
+                    x1 = x1 ^ 1;
+                    x2 = x2 ^ 1;
+#endif // RP_PIO
                 } else {
                     // Bank switched set or single ROM set in RP2350 case
                     uint sel_x1, sel_x2;

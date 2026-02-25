@@ -16,7 +16,7 @@
 
 VERSION_MAJOR := 0
 VERSION_MINOR := 6
-VERSION_PATCH := 5
+VERSION_PATCH := 6
 BUILD_NUMBER := 1
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 export VERSION_MAJOR VERSION_MINOR VERSION_PATCH BUILD_NUMBER GIT_COMMIT
@@ -57,7 +57,7 @@ endif
 # MCU ?= f401re
 # MCU ?= f401rb
 # MCU ?= f401rc
-MCU ?= f411re
+MCU ?= rp2350
 
 # Hardware revision
 #
@@ -74,7 +74,7 @@ MCU ?= f411re
 # You can add your own hardware revisions by creating the appropriate file in
 # hw-config/user, or, if you plan to submit a pull request for it and your
 # hardware files, hw-config/third-party. 
-HW_REV ?= ice-24-f
+HW_REV ?= fire-24-e
 
 # ROM configurations - each ROM can have its own type and CS settings
 #

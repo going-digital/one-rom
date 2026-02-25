@@ -76,6 +76,16 @@ static void init_address_mangler(
             mangler->cs1_pin = config->mcu.pins.cs1.pin_231024;
             break;
 
+        case CHIP_TYPE_2704:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_2704;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_2704;
+            break;
+
+        case CHIP_TYPE_2708:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_2708;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_2708;
+            break;
+
         case CHIP_TYPE_2716:
             mangler->cs1_pin = config->mcu.pins.ce.pin_2716;
             mangler->cs2_pin = config->mcu.pins.oe.pin_2716;
@@ -106,6 +116,32 @@ static void init_address_mangler(
             mangler->cs2_pin = config->mcu.pins.oe.pin_27512;
             break;
 
+        case CHIP_TYPE_27C010:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_27c010;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_27c010;
+            break;
+
+        case CHIP_TYPE_27C020:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_27c020;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_27c020;
+            break;
+
+        case CHIP_TYPE_27C040:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_27c040;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_27c040;
+            break;
+
+        case CHIP_TYPE_27C080:
+            mangler->cs1_pin = config->mcu.pins.cs1.pin_27c080;
+            mangler->cs2_pin = config->mcu.pins.ce.pin_27c080;
+            mangler->cs3_pin = config->mcu.pins.oe.pin_27c080;
+            break;
+
+        case CHIP_TYPE_27C301:
+            mangler->cs1_pin = config->mcu.pins.ce.pin_27c301;
+            mangler->cs2_pin = config->mcu.pins.oe.pin_27c301;
+            break;
+
         case CHIP_TYPE_27C400:
             mangler->cs1_pin = config->mcu.pins.ce.pin_27c400;
             mangler->cs2_pin = config->mcu.pins.oe.pin_27c400;
@@ -133,6 +169,21 @@ static void init_address_mangler(
 #if defined(DEBUG_TEST)
         printf("    Note: Swapped A11 and A12 pins %d/%d for 2732 ROM type\n", pin_a11, pin_a12);
 #endif // DEBUG_TEST
+    }
+
+    // Special case for 32 pin ROMs, the 27C301.  It has A16 after all the
+    // other pins, not at the beginning
+    if (rom_type == CHIP_TYPE_27C301) {
+        // Find the max address pin
+        uint8_t max_addr_pin = 0;
+        for (int ii = 0; ii < MAX_ADDR_LINES; ii++) {
+            if (address_mangler.addr_pins[ii] != 255) {
+                if (address_mangler.addr_pins[ii] > max_addr_pin) {
+                    max_addr_pin = address_mangler.addr_pins[ii];
+                }
+            }
+        }
+        address_mangler.addr_pins[16] = max_addr_pin + 1; // A16 is the next pin after the max address pin
     }
 
     address_mangler.x1_pin = config->mcu.pins.x1;
@@ -246,8 +297,8 @@ void create_address_mangler(const json_config_t* config, const sdrr_rom_type_t r
             }
         }
 #endif // STM32F4
-    } else if (config->rom.pin_count == 40) {
-        // 40 pins ROMs.  CS pins are NOT part of address space for 40 pins
+    } else if ((config->rom.pin_count == 40) || (config->rom.pin_count == 32)) {
+        // 32/40 pins ROMs.  CS pins are NOT part of address space for 32/40 pin
         // ROMs.  Only left shift address pins.
         uint8_t min_addr_pin = 255;
         for (int ii = 0; ii < MAX_ADDR_LINES; ii++) {
@@ -372,6 +423,8 @@ uint32_t create_mangled_address(
         }
         max_addr_pins = 18;
 #endif // RP235X
+    } else if (rom_pins == 32) {
+        max_addr_pins = 19;
     } else if (rom_pins == 40) {
         // 40-pin ROMs
         max_addr_pins = 19;
@@ -420,12 +473,19 @@ const char* rom_type_to_string(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_23256: return "23256";
         case CHIP_TYPE_23512: return "23512";
         case CHIP_TYPE_231024: return "231024";
+        case CHIP_TYPE_2704: return "2704";
+        case CHIP_TYPE_2708: return "2708";
         case CHIP_TYPE_2716: return "2716";
         case CHIP_TYPE_2732: return "2732";
         case CHIP_TYPE_2764: return "2764";
         case CHIP_TYPE_27128: return "27128";
         case CHIP_TYPE_27256: return "27256";
         case CHIP_TYPE_27512: return "27512";
+        case CHIP_TYPE_27C010: return "27C010";
+        case CHIP_TYPE_27C020: return "27C020";
+        case CHIP_TYPE_27C040: return "27C040";
+        case CHIP_TYPE_27C080: return "27C080";
+        case CHIP_TYPE_27C301: return "27C301";
         case CHIP_TYPE_27C400: return "27C400";
         default: return "unknown";
     }
@@ -435,10 +495,13 @@ uint8_t get_num_cs(sdrr_rom_type_t rom_type) {
     switch (rom_type) {
         case CHIP_TYPE_2316:
         case CHIP_TYPE_23128:
+        case CHIP_TYPE_27C080:
             return 3;
         case CHIP_TYPE_2332:
         case CHIP_TYPE_23256:
         case CHIP_TYPE_23512:
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
         case CHIP_TYPE_2764:
@@ -446,6 +509,10 @@ uint8_t get_num_cs(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_27256:
         case CHIP_TYPE_27512:
         case CHIP_TYPE_27C400:
+        case CHIP_TYPE_27C010:
+        case CHIP_TYPE_27C020:
+        case CHIP_TYPE_27C040:
+        case CHIP_TYPE_27C301:
             return 2;
         case CHIP_TYPE_2364:
         case CHIP_TYPE_231024:
@@ -500,12 +567,19 @@ size_t get_expected_rom_size(sdrr_rom_type_t rom_type) {
         case CHIP_TYPE_23256: return 32768;
         case CHIP_TYPE_23512: return 65536;
         case CHIP_TYPE_231024: return 131072;
+        case CHIP_TYPE_2704: return 512;
+        case CHIP_TYPE_2708: return 1024;
         case CHIP_TYPE_2716: return 2048;
         case CHIP_TYPE_2732: return 4096;
         case CHIP_TYPE_2764: return 8192;
         case CHIP_TYPE_27128: return 16384;
         case CHIP_TYPE_27256: return 32768;
         case CHIP_TYPE_27512: return 65536;
+        case CHIP_TYPE_27C010: return 131072;
+        case CHIP_TYPE_27C020: return 262144;
+        case CHIP_TYPE_27C040: return 524288;
+        case CHIP_TYPE_27C080: return 524288;
+        case CHIP_TYPE_27C301: return 131072;
         case CHIP_TYPE_27C400: return 524288;
         default: return 0;
     }
@@ -527,6 +601,11 @@ sdrr_rom_type_t rom_type_from_string(const char* type_str) {
     else if (strcmp(type_str, "27128") == 0) return CHIP_TYPE_27128;
     else if (strcmp(type_str, "27256") == 0) return CHIP_TYPE_27256;
     else if (strcmp(type_str, "27512") == 0) return CHIP_TYPE_27512;
+    else if (strcmp(type_str, "27C010") == 0) return CHIP_TYPE_27C010;
+    else if (strcmp(type_str, "27C020") == 0) return CHIP_TYPE_27C020;
+    else if (strcmp(type_str, "27C040") == 0) return CHIP_TYPE_27C040;
+    else if (strcmp(type_str, "27C080") == 0) return CHIP_TYPE_27C080;
+    else if (strcmp(type_str, "27C301") == 0) return CHIP_TYPE_27C301;
     else if (strcmp(type_str, "27C400") == 0) return CHIP_TYPE_27C400;
     else return -1; // Unknown type
 }

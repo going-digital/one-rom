@@ -40,6 +40,8 @@ static uint8_t get_cs_gpio_state(sdrr_cs_state_t state, uint8_t active) {
 // Gets the appropriate GPIO drive state to simulate a particular address and
 // CS state being driven on the ROM by the host.  Returns bit masks ready to
 // be applied via epio_drive_gpios_ext.
+//
+// addr is a word address in the 16-bit case.
 static void get_gpio_drive_from_addr_cs(
     sdrr_rom_type_t rom_type,
     int32_t addr,
@@ -50,7 +52,8 @@ static void get_gpio_drive_from_addr_cs(
     uint8_t x1,
     uint8_t x2,
     uint64_t *gpios_to_drive,
-    uint64_t *gpio_levels
+    uint64_t *gpio_levels,
+    uint8_t bit_mode
 ) {
     assert(addr < (512*1024) && "Address out of range for One ROM");
     assert(addr < MAX_SUPPORTED_ADDR && "Address too large to represent as int32_t");
@@ -68,6 +71,31 @@ static void get_gpio_drive_from_addr_cs(
             uint8_t temp = local_addr_pins[11];
             local_addr_pins[11] = local_addr_pins[12];
             local_addr_pins[12] = temp;
+        } else if (rom_type == CHIP_TYPE_27C301) {
+            // Pin A16 should be 1 after the higest address pin
+            uint8_t highest_addr_pin = 0;
+            for (int ii = 0; ii < 19; ii++) {
+                if (local_addr_pins[ii] > highest_addr_pin) {
+                    highest_addr_pin = local_addr_pins[ii];
+                }
+            }
+            local_addr_pins[16] = highest_addr_pin + 1;
+        } else if (rom_type == CHIP_TYPE_27C400) {
+            assert(num_addr_bits == 19 && "27C400 should have 19 address bits");
+
+            if (bit_mode == 8) {
+                // Replace the first (least significant) address line with D15
+                assert(addr < (512*1024) && "Address out of range for 8-bit mode on 27C400");
+                local_addr_pins[0] = data_pins[15];
+            } else {
+                // Remove the first (least significant) address line, as it's
+                // not used in 16-bit mode
+                assert(addr < (256*1024) && "Address out of range for 16-bit mode on 27C400");
+                for (int ii = 0; ii < 18; ii++) {
+                    local_addr_pins[ii] = addr_pins[ii + 1];
+                }
+                num_addr_bits--;
+            }
         }
 
         for (int ii = 0; ii < num_addr_bits; ii++) {
@@ -81,28 +109,68 @@ static void get_gpio_drive_from_addr_cs(
         // Do not drive address lines
     }
 
-    // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364
-    uint8_t cs2_pin;
-    uint8_t cs3_pin;
+    uint8_t cs1_pin = sdrr_info.pins->cs1;
+    uint8_t cs2_pin = sdrr_info.pins->cs2;
+    uint8_t cs3_pin = sdrr_info.pins->cs3;
+    uint8_t x1_pin = sdrr_info.pins->x1;
+    uint8_t x2_pin = sdrr_info.pins->x2;
+    uint8_t oe_pin = sdrr_info.pins->oe;
+    uint8_t ce_pin = sdrr_info.pins->ce;
     switch (rom_type) {
         case CHIP_TYPE_2316:
+        case CHIP_TYPE_2704:
+        case CHIP_TYPE_2708:
         case CHIP_TYPE_2716:
         case CHIP_TYPE_2732:
+            // Flip CS2 and CS3 pin for all 24 pin ROMs except 2332 and 2364
             cs2_pin = sdrr_info.pins->cs3;
             cs3_pin = sdrr_info.pins->cs2;
             break;
 
-        default:
-            cs2_pin = sdrr_info.pins->cs2;
-            cs3_pin = sdrr_info.pins->cs3;
+        // Some cases are missing here.  Thats because /OE/CE share pins with
+        // CS lines so its unecessary.  This goes for 24 and 28 pin ROMs only.
+
+        case CHIP_TYPE_27C301:
+            // /OE should be cs2
+            cs1_pin = ce_pin;
             break;
-    } 
+
+        case CHIP_TYPE_27C010:
+        case CHIP_TYPE_27C020:
+        case CHIP_TYPE_27C040:
+            cs1_pin = ce_pin;
+            cs2_pin = oe_pin;
+            break;
+
+        case CHIP_TYPE_27C080:
+            // CS1 pin is A19
+            cs2_pin = ce_pin;
+            cs3_pin = oe_pin;
+            break;
+
+        case CHIP_TYPE_27C400:
+            cs1_pin = ce_pin;
+            cs2_pin = oe_pin;
+            break;
+
+        default:
+            break;
+    }
+
+    // After switch, drive /BYTE for 27C400
+    if (rom_type == CHIP_TYPE_27C400) {
+        drive_mask |= (1ULL << sdrr_info.pins->byte);
+        if (bit_mode == 16) {
+            level_mask |= (1ULL << sdrr_info.pins->byte);
+        }
+        // bit_mode == 8: /BYTE stays low (not set in level_mask)
+    }
 
     // Add CS lines to the drive and level mask
     if (cs1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->cs1);
+        drive_mask |= (1ULL << cs1_pin);
         if (cs1) {
-            level_mask |= (1ULL << sdrr_info.pins->cs1);
+            level_mask |= (1ULL << cs1_pin);
         }
     }
     if (cs2 < 2) {
@@ -118,15 +186,15 @@ static void get_gpio_drive_from_addr_cs(
         }
     }
     if (x1 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x1);
+        drive_mask |= (1ULL << x1_pin);
         if (x1) {
-            level_mask |= (1ULL << sdrr_info.pins->x1);
+            level_mask |= (1ULL << x1_pin);
         }
     }
     if (x2 < 2) {
-        drive_mask |= (1ULL << sdrr_info.pins->x2);
+        drive_mask |= (1ULL << x2_pin);
         if (x2) {
-            level_mask |= (1ULL << sdrr_info.pins->x2);
+            level_mask |= (1ULL << x2_pin);
         }
     }
 
@@ -139,14 +207,17 @@ static void get_gpio_drive_from_addr_cs(
 // CS state, where CS is active (1) or inactive (0).
 //
 // When used for a multi-set ROM, the rom_index is used as an index into the
-// set's ROM
+// set's ROM.
+//
+// addr is a word address for 16-bit ROMs.
 void get_gpio_drive(
     uint8_t set_index,
     uint8_t rom_index,
     int32_t addr,
     uint8_t cs_active,
     uint64_t *gpios_to_drive,
-    uint64_t *gpio_levels
+    uint64_t *gpio_levels,
+    uint8_t bit_mode
 ) {
     assert(cs_active <= 2 && "CS active state must be 0, 1, or 2");
     assert(addr < MAX_SUPPORTED_ADDR && "Address too large to represent as int32_t");
@@ -223,6 +294,13 @@ void get_gpio_drive(
         cs1 = get_cs_gpio_state(rom_info->cs1_state, cs_active);
         cs2 = get_cs_gpio_state(rom_info->cs2_state, cs_active);
         cs3 = get_cs_gpio_state(rom_info->cs3_state, cs_active);
+
+        // Override CS2/CS3 for 27C080 - CE and OE are always active low
+        // and won't be configured in rom_info cs states
+        if (rom_type == CHIP_TYPE_27C080) {
+            cs2 = get_cs_gpio_state(CS_ACTIVE_LOW, cs_active);
+            cs3 = get_cs_gpio_state(CS_ACTIVE_LOW, cs_active);
+        }
     } else if (multi_rom) {
         // There are 3 CS lines - CS1 (ROM 0), X1 (ROM 1) and X2 (ROM 2)
         uint8_t rom_cs = get_cs_gpio_state(set->multi_rom_cs1_state, cs_active);
@@ -232,7 +310,11 @@ void get_gpio_drive(
 
         cs1 = inactive_cs;
         x1 = inactive_cs;
-        x2 = inactive_cs;
+        if (rom_count > 2) {
+            x2 = inactive_cs;
+        } else {
+            x2 = 2; // Not used, so we won't drive it
+        }
         if (cs_active < 2) {
             // We want to actually drive the active rom index's CS line
             // either inactive or active
@@ -269,7 +351,8 @@ void get_gpio_drive(
         x1,
         x2,
         gpios_to_drive,
-        gpio_levels
+        gpio_levels,
+        bit_mode
     );
 }
 
@@ -291,28 +374,32 @@ uint32_t get_byte_from_gpio(uint64_t gpio_in, uint8_t data_bits) {
 void setup_addr_pins(void) {
     for (int ii = 0; ii < 16; ii++) {
         addr_pins[ii] = sdrr_info.pins->addr[ii];
+        TST_DBG("Address pin %d: GPIO %d", ii, addr_pins[ii]);
     }
     for (int ii = 0; ii < 8; ii++) {
         addr_pins[16 + ii] = sdrr_info.pins->addr2[ii];
+        TST_DBG("Address pin %d: GPIO %d", 16 + ii, addr_pins[16 + ii]);
     }
 }
 
 void setup_data_pins(void) {
     for (int ii = 0; ii < 8; ii++) {
         data_pins[ii] = sdrr_info.pins->data[ii];
+        TST_DBG("Data pin %d: GPIO %d", ii, data_pins[ii]);
     }
     for (int ii = 0; ii < 8; ii++) {
         data_pins[8 + ii] = sdrr_info.pins->data2[ii];
+        TST_DBG("Data pin %d: GPIO %d", 8 + ii, data_pins[8 + ii]);
     }
 }
 
-void check_data_pins_driven(epio_t *epio) {
+void check_data_pins_driven(epio_t *epio, uint8_t bit_mode) {
     uint64_t driven = epio_read_driven_pins(epio);
-    for (int ii = 0; ii < 16; ii++) {
+    for (int ii = 0; ii < bit_mode; ii++) {
         uint8_t pin = data_pins[ii];
         if (pin < MAX_USED_GPIOS) {
             if (!(driven & (1ULL << pin))) {
-                uint64_t level = epio_read_gpios_ext(epio);
+                uint64_t level = epio_read_pin_states(epio);
                 TST_LOG("Data pin %d (GPIO %d) not driven when it should be at 0x%08X GPIOs driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
                 assert(0 && "Data pin not driven");
             }
@@ -320,13 +407,13 @@ void check_data_pins_driven(epio_t *epio) {
     }
 }
 
-void check_data_pins_undriven(epio_t *epio) {
+void check_data_pins_undriven(epio_t *epio, uint8_t bit_mode) {
     uint64_t driven = epio_read_driven_pins(epio);
-    for (int ii = 0; ii < 16; ii++) {
+    for (int ii = 0; ii < bit_mode; ii++) {
         uint8_t pin = data_pins[ii];
         if (pin < MAX_USED_GPIOS) {
             if (driven & (1ULL << pin)) {
-                uint64_t level = epio_read_gpios_ext(epio);
+                uint64_t level = epio_read_pin_states(epio);
                 TST_LOG("Data pin %d (GPIO %d) driven when it shouldn't be at 0x%08X GPIO driven: 0x%016llX levels: 0x%016llX", ii, pin, get_progress(), driven, level);
                 assert(0 && "Data pin driven when it shouldn't be");
             }
