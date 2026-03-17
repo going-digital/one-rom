@@ -1,0 +1,1 @@
+* [ ] Implement optional link to work with [Amiga 500 Rev 5](https://theoasisbbs.com/permanent-fix-for-the-amiga-500-rev-5-oops-bug/)
